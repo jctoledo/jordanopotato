@@ -50,6 +50,16 @@ conversations = {}
 
 app.mount("/static", StaticFiles(directory="frontend/build/static"), name="static")
 
+
+# Serve index.html on the root and any other paths
+@app.get("/{full_path:path}")
+async def serve_react_app(full_path: str):
+    file_path = os.path.join('frontend', 'build', full_path)
+    if os.path.exists(file_path) and not os.path.isdir(file_path):
+        return FileResponse(file_path)
+    else:
+        return FileResponse(os.path.join('frontend', 'build', 'index.html'))
+
 @app.get("/")
 async def read_index():
     return FileResponse('frontend/build/index.html')
