@@ -78,7 +78,7 @@ async def chat(request: MessageRequest):
                 openai_api_key=MY_OPENAI_KEY,
                 model_name='gpt-4o',
                 temperature=0.65,
-                max_tokens=-1
+                max_tokens=5000
             )
             summary_memory = ConversationSummaryBufferMemory(llm=llm)
             jordano_prompt = PromptTemplate(
