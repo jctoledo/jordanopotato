@@ -76,9 +76,9 @@ async def chat(request: MessageRequest):
             # Create a new conversation
             llm = ChatOpenAI(
                 openai_api_key=MY_OPENAI_KEY,
-                model_name='gpt-4',
-                temperature=0,
-                max_tokens=1000
+                model_name='gpt-4o',
+                temperature=0.65,
+                max_tokens=-1
             )
             summary_memory = ConversationSummaryBufferMemory(llm=llm)
             jordano_prompt = PromptTemplate(
