@@ -2,7 +2,7 @@ import os
 import dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from langchain.callbacks import get_openai_callback
 from jordan_prompt import template as jordano_template
@@ -51,6 +51,33 @@ conversations = {}
 app.mount("/static", StaticFiles(directory="frontend/build/static"), name="static")
 
 
+# Models for handling prompt updates and conversation summaries
+class PromptUpdateRequest(BaseModel):
+    new_prompt: str
+
+class SummaryResponse(BaseModel):
+    summary: str
+
+# Store the current prompt globally
+current_prompt = jordano_template
+
+@app.get("/prompt", response_model=str)
+async def get_prompt():
+    return current_prompt
+
+@app.post("/prompt", response_model=str)
+async def update_prompt(request: PromptUpdateRequest):
+    global current_prompt
+    current_prompt = request.new_prompt
+    return current_prompt
+
+@app.get("/summary/{session_id}", response_model=SummaryResponse)
+async def get_summary(session_id: str):
+    if session_id not in conversations:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    conversation = conversations[session_id]
+    return SummaryResponse(summary=conversation.memory.load_memory_variables({})["history"])
+
 # Serve index.html on the root and any other paths
 @app.get("/{full_path:path}")
 async def serve_react_app(full_path: str):
@@ -76,7 +103,7 @@ async def chat(request: MessageRequest):
             # Create a new conversation
             llm = ChatOpenAI(
                 openai_api_key=MY_OPENAI_KEY,
-                model_name='gpt-4o',
+                model_name='gpt-4',
                 temperature=0.65,
                 max_tokens=5000
             )

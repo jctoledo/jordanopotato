@@ -1,4 +1,3 @@
-// src/Chat.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
@@ -12,12 +11,44 @@ function Chat() {
   const [input, setInput] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [prompt, setPrompt] = useState('');
+  const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+  const [summary, setSummary] = useState('');
 
   useEffect(() => {
-    // Generate a unique session ID
     const id = uuidv4();
     setSessionId(id);
+
+    // Load the current prompt
+    fetchPrompt();
   }, []);
+
+  const fetchPrompt = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/prompt`);
+      setPrompt(response.data);
+    } catch (error) {
+      console.error('Error fetching prompt:', error);
+    }
+  };
+
+  const updatePrompt = async () => {
+    try {
+      await axios.post(`${API_BASE_URL}/prompt`, { new_prompt: prompt });
+      setIsEditingPrompt(false);
+    } catch (error) {
+      console.error('Error updating prompt:', error);
+    }
+  };
+
+  const fetchSummary = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/summary/${sessionId}`);
+      setSummary(response.data.summary);
+    } catch (error) {
+      console.error('Error fetching summary:', error);
+    }
+  };
 
   const sendMessage = async () => {
     if (input.trim() === '') return;
@@ -25,7 +56,7 @@ function Chat() {
     const userMessage = { sender: 'You', text: input };
     setMessages((prevMessages) => [...prevMessages, userMessage]);
     setInput('');
-    setIsLoading(true); // Show feedback for async call
+    setIsLoading(true);
 
     try {
       const response = await axios.post(`${API_BASE_URL}/chat`, {
@@ -46,24 +77,31 @@ function Chat() {
       };
       setMessages((prevMessages) => [...prevMessages, errorMessage]);
     } finally {
-      setIsLoading(false); // Hide feedback after async call
-    }
-  };
-
-  const handleInputChange = (e) => {
-    setInput(e.target.value);
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault(); // Prevent form submission on Enter
-      sendMessage();
+      setIsLoading(false);
     }
   };
 
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>AI Psychologist Chat</h1>
+      <div style={styles.promptSection}>
+        <h2 style={styles.sectionTitle}>Current Prompt</h2>
+        {isEditingPrompt ? (
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            style={styles.textarea}
+          />
+        ) : (
+          <p style={styles.promptText}>{prompt}</p>
+        )}
+        <button
+          onClick={isEditingPrompt ? updatePrompt : () => setIsEditingPrompt(true)}
+          style={styles.button}
+        >
+          {isEditingPrompt ? 'Save Prompt' : 'Edit Prompt'}
+        </button>
+      </div>
       <div style={styles.chatBox}>
         {messages.map((msg, index) => (
           <div
@@ -87,14 +125,21 @@ function Chat() {
       <div style={styles.inputContainer}>
         <textarea
           value={input}
-          onChange={handleInputChange}
-          onKeyPress={handleKeyPress}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
           placeholder="Type your message..."
           style={styles.textarea}
         />
         <button onClick={sendMessage} style={styles.sendButton} disabled={isLoading}>
           Send
         </button>
+      </div>
+      <div style={styles.summarySection}>
+        <h2 style={styles.sectionTitle}>Conversation Summary</h2>
+        <button onClick={fetchSummary} style={styles.button}>
+          Refresh Summary
+        </button>
+        <p style={styles.summaryText}>{summary || 'No summary available yet.'}</p>
       </div>
     </div>
   );
@@ -105,7 +150,7 @@ const styles = {
     width: '600px',
     margin: '50px auto',
     fontFamily: "'Helvetica Neue', Arial, sans-serif",
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#F9F9F9',
     borderRadius: '8px',
     boxShadow: '0 4px 10px rgba(0, 0, 0, 0.1)',
     padding: '20px',
@@ -114,6 +159,20 @@ const styles = {
     textAlign: 'center',
     color: '#333',
     marginBottom: '20px',
+  },
+  promptSection: {
+    marginBottom: '20px',
+  },
+  sectionTitle: {
+    fontSize: '18px',
+    marginBottom: '10px',
+  },
+  promptText: {
+    backgroundColor: '#FFF',
+    padding: '10px',
+    border: '1px solid #CCC',
+    borderRadius: '5px',
+    marginBottom: '10px',
   },
   chatBox: {
     display: 'flex',
@@ -132,9 +191,6 @@ const styles = {
     borderRadius: '10px',
     maxWidth: '70%',
     lineHeight: '1.4',
-  },
-  messageText: {
-    margin: '5px 0 0',
   },
   inputContainer: {
     display: 'flex',
@@ -163,6 +219,26 @@ const styles = {
     alignSelf: 'flex-start',
     color: '#888',
     fontStyle: 'italic',
+  },
+  summarySection: {
+    marginTop: '20px',
+  },
+  summaryText: {
+    marginTop: '10px',
+    backgroundColor: '#FFF',
+    padding: '10px',
+    border: '1px solid #CCC',
+    borderRadius: '5px',
+  },
+  button: {
+    padding: '10px 20px',
+    fontSize: '16px',
+    borderRadius: '8px',
+    border: 'none',
+    backgroundColor: '#28A745',
+    color: '#FFF',
+    cursor: 'pointer',
+    marginTop: '10px',
   },
 };
 
