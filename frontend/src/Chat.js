@@ -1,52 +1,68 @@
+// Chat.js
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { v4 as uuidv4 } from 'uuid';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? '' 
+  : process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
 
-function Chat() {
-  const [messages, setMessages] = useState([
-    { sender: 'AI Psychologist', text: 'Hello! How can I assist you today?' },
-  ]);
+function Chat({ userId, summary }) {
+  const navigate = useNavigate();
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [sessionId, setSessionId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
-  const [summary, setSummary] = useState('');
+  const [localSummary, setLocalSummary] = useState(summary);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const id = uuidv4();
-    setSessionId(id);
+    if (!userId) {
+      // Redirect to login if no userId
+      navigate('/login');
+    } else {
+      // Initialize messages with summary or default message
+      setMessages([
+        { sender: 'AI Psychologist', text: summary || 'Hello! How can I assist you today?' },
+      ]);
+    }
+  }, [userId, navigate, summary]);
 
+  useEffect(() => {
     // Load the current prompt
-    fetchPrompt();
-  }, []);
+    if (userId) {
+      fetchPrompt();
+    }
+  }, [userId]);
 
   const fetchPrompt = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/prompt`);
+      const response = await axios.get(`${API_BASE_URL}/prompt/${userId}`);
       setPrompt(response.data);
     } catch (error) {
       console.error('Error fetching prompt:', error);
+      setError('Failed to fetch prompt.');
     }
   };
 
   const updatePrompt = async () => {
     try {
-      await axios.post(`${API_BASE_URL}/prompt`, { new_prompt: prompt });
+      await axios.post(`${API_BASE_URL}/prompt/${userId}`, { new_prompt: prompt });
       setIsEditingPrompt(false);
     } catch (error) {
       console.error('Error updating prompt:', error);
+      setError('Failed to update prompt.');
     }
   };
 
   const fetchSummary = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/summary/${sessionId}`);
-      setSummary(response.data.summary);
+      const response = await axios.get(`${API_BASE_URL}/summary/${userId}`);
+      setLocalSummary(response.data.summary);
     } catch (error) {
       console.error('Error fetching summary:', error);
+      setError('Failed to fetch summary.');
     }
   };
 
@@ -57,11 +73,12 @@ function Chat() {
     setMessages((prevMessages) => [...prevMessages, userMessage]);
     setInput('');
     setIsLoading(true);
+    setError('');
 
     try {
       const response = await axios.post(`${API_BASE_URL}/chat`, {
         message: input,
-        session_id: sessionId,
+        user_id: userId,
       });
 
       const aiMessage = {
@@ -71,6 +88,7 @@ function Chat() {
       setMessages((prevMessages) => [...prevMessages, aiMessage]);
     } catch (error) {
       console.error('Error sending message:', error);
+      setError('Failed to send message.');
       const errorMessage = {
         sender: 'AI Psychologist',
         text: 'Sorry, there was an error processing your request.',
@@ -101,6 +119,7 @@ function Chat() {
         >
           {isEditingPrompt ? 'Save Prompt' : 'Edit Prompt'}
         </button>
+        {error && <p style={{ color: 'red', marginTop: '10px' }}>{error}</p>}
       </div>
       <div style={styles.chatBox}>
         {messages.map((msg, index) => (
@@ -126,7 +145,7 @@ function Chat() {
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+          onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
           placeholder="Type your message..."
           style={styles.textarea}
         />
@@ -139,7 +158,7 @@ function Chat() {
         <button onClick={fetchSummary} style={styles.button}>
           Refresh Summary
         </button>
-        <p style={styles.summaryText}>{summary || 'No summary available yet.'}</p>
+        <p style={styles.summaryText}>{localSummary || 'No summary available yet.'}</p>
       </div>
     </div>
   );
